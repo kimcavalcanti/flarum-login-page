@@ -7,7 +7,7 @@
 * file that was distributed with this source code.
 */
 import Modal from 'flarum/components/Modal';
-import ForgotPasswordModal from 'flarum/components/ForgotPasswordModal';
+import ForgotPasswordModal from 'matpompili/login-page/components/FullPagePassRecModal';
 import SignUpModal from 'flarum/components/SignUpModal';
 import Alert from 'flarum/components/Alert';
 import Button from 'flarum/components/Button';
@@ -24,7 +24,7 @@ export default class LogInModal extends Modal {
      *
      * @type {Function}
      */
-    this.email = m.prop(this.props.email || '');
+    this.identification = m.prop(this.props.identification || '');
 
     /**
      * The value of the password input.
@@ -33,7 +33,12 @@ export default class LogInModal extends Modal {
      */
     this.password = m.prop(this.props.password || '');
 
-    this.isDismissible = function() {return false};
+    /**
+     * The value of the remember me input.
+     *
+     * @type {Function}
+     */
+    this.remember = m.prop(!!this.props.remember);
   }
 
   className() {
@@ -57,16 +62,14 @@ export default class LogInModal extends Modal {
 
         <div className="Form Form--centered">
           <div className="Form-group">
-            <input className="FormControl" name="email" placeholder={extractText(app.translator.trans('core.forum.log_in.username_or_email_placeholder'))}
-              value={this.email()}
-              onchange={m.withAttr('value', this.email)}
+            <input className="FormControl" name="identification" type="text" placeholder={extractText(app.translator.trans('core.forum.log_in.username_or_email_placeholder'))}
+              bidi={this.identification}
               disabled={this.loading} />
           </div>
 
           <div className="Form-group">
             <input className="FormControl" name="password" type="password" placeholder={extractText(app.translator.trans('core.forum.log_in.password_placeholder'))}
-              value={this.password()}
-              onchange={m.withAttr('value', this.password)}
+              bidi={this.password}
               disabled={this.loading} />
           </div>
 
@@ -77,6 +80,12 @@ export default class LogInModal extends Modal {
               loading: this.loading,
               children: app.translator.trans('core.forum.log_in.submit_button')
             })}
+          </div>
+
+          <div className="Form-group">
+            <p className="Button Button--primary Button--block">
+              <a style="color: white" onclick={this.forgotPassword.bind(this)}>{app.translator.trans('core.forum.log_in.forgot_password_link')}</a>
+            </p>
           </div>
         </div>
       </div>
@@ -90,7 +99,7 @@ export default class LogInModal extends Modal {
    * @public
    */
   forgotPassword() {
-    const email = this.email();
+    const email = this.identification();
     const props = email.indexOf('@') !== -1 ? {email} : undefined;
 
     app.modal.show(new ForgotPasswordModal(props));
@@ -104,14 +113,14 @@ export default class LogInModal extends Modal {
    */
   signUp() {
     const props = {password: this.password()};
-    const email = this.email();
-    props[email.indexOf('@') !== -1 ? 'email' : 'username'] = email;
+    const identification = this.identification();
+    props[identification.indexOf('@') !== -1 ? 'email' : 'username'] = identification;
 
     app.modal.show(new SignUpModal(props));
   }
 
   onready() {
-    this.$('[name=' + (this.email() ? 'password' : 'email') + ']').select();
+    this.$('[name=' + (this.identification() ? 'password' : 'identification') + ']').select();
   }
 
   onsubmit(e) {
@@ -119,21 +128,20 @@ export default class LogInModal extends Modal {
 
     this.loading = true;
 
-    const email = this.email();
+    const identification = this.identification();
     const password = this.password();
+    const remember = this.remember();
 
-    app.session.login(email, password, {errorHandler: this.onerror.bind(this)})
-      .catch(this.loaded.bind(this));
+    app.session.login({identification, password, remember}, {errorHandler: this.onerror.bind(this)})
+      .then(
+        () => window.location.reload(),
+        this.loaded.bind(this)
+      );
   }
 
   onerror(error) {
     if (error.status === 401) {
-      if (error.response.emailConfirmationRequired) {
-        error.alert.props.children = app.translator.trans('core.forum.log_in.confirmation_required_message', {email: error.response.emailConfirmationRequired});
-        delete error.alert.props.type;
-      } else {
-        error.alert.props.children = app.translator.trans('core.forum.log_in.invalid_login_message');
-      }
+      error.alert.props.children = app.translator.trans('core.forum.log_in.invalid_login_message');
     }
 
     super.onerror(error);
@@ -141,22 +149,11 @@ export default class LogInModal extends Modal {
 }
 
 override(LogInModal.prototype, 'view', function (){
-  if (this.alert) {
-    this.alert.props.dismissible = false;
-  }
 
   return (
     <div className={'Modal modal-dialog ' + this.className()}>
       <div className="Modal-content">
-        {this.isDismissible() ? (
-          <div className="Modal-close App-backControl">
-            {Button.component({
-              icon: 'times',
-              onclick: this.hide.bind(this),
-              className: 'Button Button--icon Button--link'
-            })}
-          </div>
-        ) : ''}
+        {''}
 
         <form onsubmit={this.onsubmit.bind(this)}>
           <div className="Modal-header">
